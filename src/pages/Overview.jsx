@@ -5,7 +5,7 @@ import {
 } from 'recharts'
 import {
   Users, MousePointerClick, Activity, TrendingUp,
-  Lightbulb, RefreshCw,
+  Lightbulb,
 } from 'lucide-react'
 import StatCard from '../components/StatCard.jsx'
 import { supabase } from '../lib/supabase.js'
@@ -45,8 +45,8 @@ export default function Overview() {
   const [pieData, setPieData]   = useState([])
   const [insights, setInsights] = useState([])
 
-  const loadData = useCallback(async () => {
-    setLoading(true)
+  const loadData = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true)
     try {
       // ── Contagens gerais ──────────────────────────────────────────
       const [
@@ -165,12 +165,12 @@ export default function Overview() {
   useEffect(() => {
     loadData()
 
-    // Realtime: re-busca os dados agregados sempre que qualquer tabela mudar
+    // Realtime: re-busca os dados agregados sem mostrar loading spinner
     const channel = supabase
       .channel('overview-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' },    () => loadData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'sessions' }, () => loadData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' },   () => loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' },    () => loadData(false))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sessions' }, () => loadData(false))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' },   () => loadData(false))
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
@@ -179,24 +179,9 @@ export default function Overview() {
   return (
     <div className="page-container fade-in">
       {/* Cabeçalho */}
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <h1 className="page-title">Visão Geral</h1>
-          <p className="page-subtitle">Resumo de performance de todas as landing pages</p>
-        </div>
-        <button
-          onClick={loadData}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            background: 'var(--bg-card)', border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-sm)', padding: '7px 12px',
-            color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 13,
-            fontFamily: 'var(--font-sans)',
-          }}
-        >
-          <RefreshCw size={14} />
-          Atualizar
-        </button>
+      <div className="page-header">
+        <h1 className="page-title">Visão Geral</h1>
+        <p className="page-subtitle">Resumo de performance de todas as landing pages</p>
       </div>
 
       {loading ? (

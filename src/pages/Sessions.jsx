@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react'
-import { MonitorSmartphone, RefreshCw } from 'lucide-react'
+import { MonitorSmartphone } from 'lucide-react'
 import { supabase } from '../lib/supabase.js'
 
 // Badge de device type
@@ -94,24 +94,9 @@ export default function Sessions() {
   return (
     <div className="page-container fade-in">
       {/* Cabeçalho */}
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <h1 className="page-title">Sessões</h1>
-          <p className="page-subtitle">{sessions.length} sessões exibidas</p>
-        </div>
-        <button
-          onClick={loadSessions}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            background: 'var(--bg-card)', border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-sm)', padding: '7px 12px',
-            color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 13,
-            fontFamily: 'var(--font-sans)',
-          }}
-        >
-          <RefreshCw size={14} />
-          Atualizar
-        </button>
+      <div className="page-header">
+        <h1 className="page-title">Sessões</h1>
+        <p className="page-subtitle">{sessions.length} sessões exibidas</p>
       </div>
 
       {/* Filtros */}

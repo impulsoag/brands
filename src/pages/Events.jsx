@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react'
-import { MousePointerClick, ArrowDownUp, HelpCircle, Clock, RefreshCw, Activity } from 'lucide-react'
+import { MousePointerClick, ArrowDownUp, HelpCircle, Clock, Activity } from 'lucide-react'
 import StatCard from '../components/StatCard.jsx'
 import { supabase } from '../lib/supabase.js'
 
@@ -136,24 +136,9 @@ export default function Events() {
   return (
     <div className="page-container fade-in">
       {/* Cabeçalho */}
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <h1 className="page-title">Eventos</h1>
-          <p className="page-subtitle">Interações rastreadas nas landing pages</p>
-        </div>
-        <button
-          onClick={loadEvents}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            background: 'var(--bg-card)', border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-sm)', padding: '7px 12px',
-            color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 13,
-            fontFamily: 'var(--font-sans)',
-          }}
-        >
-          <RefreshCw size={14} />
-          Atualizar
-        </button>
+      <div className="page-header">
+        <h1 className="page-title">Eventos</h1>
+        <p className="page-subtitle">Interações rastreadas nas landing pages</p>
       </div>
 
       {/* Summary Cards */}

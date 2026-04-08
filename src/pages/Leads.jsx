@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react'
-import { Users, RefreshCw } from 'lucide-react'
+import { Users } from 'lucide-react'
 import { supabase } from '../lib/supabase.js'
 
 // Opções de status disponíveis
@@ -129,26 +129,9 @@ export default function Leads() {
   return (
     <div className="page-container fade-in">
       {/* Cabeçalho */}
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <h1 className="page-title">Marcas Captadas</h1>
-          <p className="page-subtitle">
-            {filtered.length} marcas exibidas
-          </p>
-        </div>
-        <button
-          onClick={loadLeads}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            background: 'var(--bg-card)', border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-sm)', padding: '7px 12px',
-            color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 13,
-            fontFamily: 'var(--font-sans)',
-          }}
-        >
-          <RefreshCw size={14} />
-          Atualizar
-        </button>
+      <div className="page-header">
+        <h1 className="page-title">Marcas Captadas</h1>
+        <p className="page-subtitle">{filtered.length} marcas exibidas</p>
       </div>
 
       {/* Filtros */}
