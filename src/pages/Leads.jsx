@@ -2,83 +2,64 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { Users } from 'lucide-react'
 import { supabase } from '../lib/supabase.js'
 
-// Cache em memória por período — persiste entre trocas de aba
-const _cache = {}
+const STATUS_OPTIONS = ['Novo Lead', 'Em Contato', 'Em Negociação', 'Fechado']
 
-// Opções de status disponíveis
-const STATUS_OPTIONS = ['Nova', 'Contatado', 'Fechado', 'Perdido']
-
-// Mapeamento de status para classe CSS
 const statusClass = {
-  Nova:       'status-nova',
-  Contatado:  'status-contatado',
-  Fechado:    'status-fechado',
-  Perdido:    'status-perdido',
+  'Novo Lead':      'status-novo-lead',
+  'Em Contato':     'status-em-contato',
+  'Em Negociação':  'status-negociacao',
+  'Fechado':        'status-fechado',
 }
 
-// Badge de intenção
-function IntentBadge({ value }) {
-  if (!value) return <span className="text-muted">—</span>
-  return <span className="badge badge-purple">{value}</span>
+// Situação auto-calculada pela idade do lead
+function getSituacao(createdAt) {
+  const dias = Math.floor((Date.now() - new Date(createdAt).getTime()) / 86400000)
+  if (dias >= 15) return { label: 'Crítico', cls: 'situacao-critico' }
+  if (dias >= 7)  return { label: 'Alerta',  cls: 'situacao-alerta'  }
+  return               { label: 'Novo',    cls: 'situacao-novo'    }
 }
 
-// Formata data para pt-BR
 function fmtDate(iso) {
   if (!iso) return '—'
   return new Date(iso).toLocaleString('pt-BR', {
-    day: '2-digit', month: '2-digit', year: '2-digit',
-    hour: '2-digit', minute: '2-digit',
+    day:'2-digit', month:'2-digit', year:'2-digit',
+    hour:'2-digit', minute:'2-digit',
   })
 }
 
+const _cache = {}
+
 export default function Leads() {
   const [fPeriod, setFPeriod]         = useState('30')
-
-  const cached = _cache[fPeriod]
+  const cached                        = _cache[fPeriod]
   const [leads, setLeads]             = useState(cached?.leads || [])
   const [filtered, setFiltered]       = useState(cached?.leads || [])
   const [loading, setLoading]         = useState(!cached)
   const [updating, setUpdating]       = useState(null)
-
-  // Filtros
   const [fInfluencer, setFInfluencer] = useState('')
-  const [fCombo, setFCombo]           = useState('')
-  const [fOrigin, setFOrigin]         = useState('')
   const [fStatus, setFStatus]         = useState('')
-
-  // Opções únicas para os filtros
+  const [fDevice, setFDevice]         = useState('')
   const [optInfluencers, setOptInfluencers] = useState(cached?.optInfluencers || [])
-  const [optCombos, setOptCombos]           = useState(cached?.optCombos || [])
-  const [optOrigins, setOptOrigins]         = useState(cached?.optOrigins || [])
 
   const loadLeads = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true)
     try {
       const since = new Date()
       since.setDate(since.getDate() - Number(fPeriod))
-
       const { data, error } = await supabase
-        .from('leads')
-        .select('*')
+        .from('leads').select('*')
         .gte('created_at', since.toISOString())
         .order('created_at', { ascending: false })
         .limit(500)
-
       if (error) throw error
 
-      setLeads(data || [])
-
-      // Extrair opções únicas para os filtros
-      const influencers = [...new Set((data || []).map(l => l.influencer).filter(Boolean))]
-      const combos      = [...new Set((data || []).map(l => l.combo).filter(Boolean))]
-      const origins     = [...new Set((data || []).map(l => l.origem).filter(Boolean))]
-      setOptInfluencers(influencers)
-      setOptCombos(combos)
-      setOptOrigins(origins)
-
-      _cache[fPeriod] = { leads: data || [], optInfluencers: influencers, optCombos: combos, optOrigins: origins }
-    } catch (err) {
-      console.error('[Leads] Erro ao carregar:', err)
+      const rows = data || []
+      setLeads(rows)
+      const infs = [...new Set(rows.map(l=>l.influencer).filter(Boolean))]
+      setOptInfluencers(infs)
+      _cache[fPeriod] = { leads: rows, optInfluencers: infs }
+    } catch(err) {
+      console.error('[Leads]', err)
     } finally {
       setLoading(false)
     }
@@ -86,70 +67,62 @@ export default function Leads() {
 
   useEffect(() => {
     loadLeads(!_cache[fPeriod])
-
-    // Realtime: novos leads entram no topo, updates de status refletem imediatamente
-    const channel = supabase
-      .channel('leads-realtime')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'leads' }, ({ new: row }) => {
+    const ch = supabase.channel('leads-rt')
+      .on('postgres_changes', { event:'INSERT', schema:'public', table:'leads' }, ({ new: row }) => {
         setLeads(prev => [row, ...prev])
       })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'leads' }, ({ new: row }) => {
-        setLeads(prev => prev.map(l => l.id === row.id ? row : l))
+      .on('postgres_changes', { event:'UPDATE', schema:'public', table:'leads' }, ({ new: row }) => {
+        setLeads(prev => prev.map(l => l.id===row.id ? row : l))
       })
       .subscribe()
-
-    return () => { supabase.removeChannel(channel) }
+    return () => { supabase.removeChannel(ch) }
   }, [loadLeads])
 
-  // Aplica filtros locais
   useEffect(() => {
     let list = leads
     if (fInfluencer) list = list.filter(l => l.influencer === fInfluencer)
-    if (fCombo)      list = list.filter(l => l.combo === fCombo)
-    if (fOrigin)     list = list.filter(l => l.origem === fOrigin)
     if (fStatus)     list = list.filter(l => l.status === fStatus)
+    if (fDevice)     list = list.filter(l => (l.device_type||'').toLowerCase() === fDevice)
     setFiltered(list)
-  }, [leads, fInfluencer, fCombo, fOrigin, fStatus])
+  }, [leads, fInfluencer, fStatus, fDevice])
 
-  // Atualiza status inline no Supabase
   async function handleStatusChange(id, newStatus) {
     setUpdating(id)
     try {
-      const { error } = await supabase
-        .from('leads')
-        .update({ status: newStatus })
-        .eq('id', id)
-
+      const { error } = await supabase.from('leads').update({ status: newStatus }).eq('id', id)
       if (error) throw error
-
-      // Atualiza localmente sem recarregar tudo
-      setLeads(prev =>
-        prev.map(l => l.id === id ? { ...l, status: newStatus } : l)
-      )
-    } catch (err) {
-      console.error('[Leads] Erro ao atualizar status:', err)
+      setLeads(prev => prev.map(l => l.id===id ? { ...l, status: newStatus } : l))
+    } catch(err) {
+      console.error('[Leads] status', err)
     } finally {
       setUpdating(null)
     }
   }
 
+  // Contadores de situação
+  const counts = { Novo: 0, Alerta: 0, Crítico: 0 }
+  leads.forEach(l => { counts[getSituacao(l.created_at).label]++ })
+
   return (
     <div className="page-container fade-in">
-      {/* Cabeçalho */}
-      <div className="page-header">
-        <h1 className="page-title">Marcas Captadas</h1>
-        <p className="page-subtitle">{filtered.length} marcas exibidas</p>
+      <div className="page-header" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+        <div>
+          <h1 className="page-title">Marcas</h1>
+          <p className="page-subtitle">{filtered.length} marcas exibidas</p>
+        </div>
+        {/* Situação summary */}
+        <div style={{ display:'flex', gap:8 }}>
+          <span className={`badge situacao-novo`}>{counts.Novo} Novos</span>
+          {counts.Alerta  > 0 && <span className={`badge situacao-alerta`}>{counts.Alerta} Alerta</span>}
+          {counts.Crítico > 0 && <span className={`badge situacao-critico`}>{counts.Crítico} Crítico</span>}
+        </div>
       </div>
 
       {/* Filtros */}
       <div className="filters-bar">
         <span className="filters-label">Filtros:</span>
 
-        <select
-          className="filter-select"
-          value={fPeriod}
-          onChange={e => setFPeriod(e.target.value)}
-        >
+        <select className="filter-select" value={fPeriod} onChange={e=>setFPeriod(e.target.value)}>
           <option value="7">Últimos 7 dias</option>
           <option value="14">Últimos 14 dias</option>
           <option value="30">Últimos 30 dias</option>
@@ -157,66 +130,34 @@ export default function Leads() {
           <option value="365">Último ano</option>
         </select>
 
-        <select
-          className="filter-select"
-          value={fInfluencer}
-          onChange={e => setFInfluencer(e.target.value)}
-        >
+        <select className="filter-select" value={fInfluencer} onChange={e=>setFInfluencer(e.target.value)}>
           <option value="">Todos os influenciadores</option>
-          {optInfluencers.map(v => <option key={v} value={v}>{v}</option>)}
+          {optInfluencers.map(v=><option key={v} value={v}>{v}</option>)}
         </select>
 
-        <select
-          className="filter-select"
-          value={fCombo}
-          onChange={e => setFCombo(e.target.value)}
-        >
-          <option value="">Todos os combos</option>
-          {optCombos.map(v => <option key={v} value={v}>{v}</option>)}
+        <select className="filter-select" value={fDevice} onChange={e=>setFDevice(e.target.value)}>
+          <option value="">Todos dispositivos</option>
+          <option value="mobile">Mobile</option>
+          <option value="desktop">Desktop</option>
         </select>
 
-        <select
-          className="filter-select"
-          value={fOrigin}
-          onChange={e => setFOrigin(e.target.value)}
-        >
-          <option value="">Todas as origens</option>
-          {optOrigins.map(v => <option key={v} value={v}>{v}</option>)}
-        </select>
-
-        <select
-          className="filter-select"
-          value={fStatus}
-          onChange={e => setFStatus(e.target.value)}
-        >
+        <select className="filter-select" value={fStatus} onChange={e=>setFStatus(e.target.value)}>
           <option value="">Todos os status</option>
-          {STATUS_OPTIONS.map(v => <option key={v} value={v}>{v}</option>)}
+          {STATUS_OPTIONS.map(v=><option key={v} value={v}>{v}</option>)}
         </select>
 
-        {(fInfluencer || fCombo || fOrigin || fStatus) && (
-          <button
-            onClick={() => { setFInfluencer(''); setFCombo(''); setFOrigin(''); setFStatus('') }}
-            style={{
-              background: 'none', border: 'none', color: 'var(--accent-red)',
-              cursor: 'pointer', fontSize: 12, fontFamily: 'var(--font-sans)',
-            }}
-          >
+        {(fInfluencer||fStatus||fDevice) && (
+          <button onClick={()=>{setFInfluencer('');setFStatus('');setFDevice('')}}
+            style={{background:'none',border:'none',color:'var(--accent-red)',cursor:'pointer',fontSize:12,fontFamily:'var(--font-sans)'}}>
             Limpar filtros
           </button>
         )}
       </div>
 
-      {/* Tabela */}
       {loading ? (
-        <div className="loading-state">
-          <div className="loading-spinner" />
-          Carregando marcas...
-        </div>
+        <div className="loading-state"><div className="loading-spinner"/>Carregando marcas...</div>
       ) : filtered.length === 0 ? (
-        <div className="empty-state">
-          <Users size={28} color="var(--text-muted)" />
-          Nenhuma marca encontrada
-        </div>
+        <div className="empty-state"><Users size={28} color="var(--text-muted)"/>Nenhuma marca encontrada</div>
       ) : (
         <div className="table-wrapper">
           <table>
@@ -226,48 +167,44 @@ export default function Leads() {
                 <th>Nome da Marca</th>
                 <th>Número</th>
                 <th>Influenciador</th>
-                <th>Combo</th>
                 <th>Origem</th>
-                <th>Intenção</th>
+                <th>Situação</th>
                 <th>Data</th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((lead, idx) => (
-                <tr key={lead.id}>
-                  <td className="text-muted text-small">{idx + 1}</td>
-                  <td className="td-primary">{lead.nome || <span className="text-muted">—</span>}</td>
-                  <td className="td-mono">{lead.numero || '—'}</td>
-                  <td>{lead.influencer || <span className="text-muted">—</span>}</td>
-                  <td>
-                    {lead.combo
-                      ? <span className="badge badge-blue">{lead.combo}</span>
-                      : <span className="text-muted">—</span>
-                    }
-                  </td>
-                  <td>
-                    {lead.origem
-                      ? <span className="badge badge-cyan">{lead.origem}</span>
-                      : <span className="text-muted">—</span>
-                    }
-                  </td>
-                  <td><IntentBadge value={lead.intencao} /></td>
-                  <td className="text-muted text-small">{fmtDate(lead.created_at)}</td>
-                  <td>
-                    <select
-                      className={`status-select ${statusClass[lead.status] || 'status-nova'}`}
-                      value={lead.status || 'Nova'}
-                      onChange={e => handleStatusChange(lead.id, e.target.value)}
-                      disabled={updating === lead.id}
-                    >
-                      {STATUS_OPTIONS.map(s => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
-                  </td>
-                </tr>
-              ))}
+              {filtered.map((lead, idx) => {
+                const sit = getSituacao(lead.created_at)
+                return (
+                  <tr key={lead.id}>
+                    <td className="text-muted text-small">{idx+1}</td>
+                    <td className="td-primary">{lead.nome || <span className="text-muted">—</span>}</td>
+                    <td className="td-mono">{lead.numero || '—'}</td>
+                    <td>{lead.influencer || <span className="text-muted">—</span>}</td>
+                    <td>
+                      {lead.device_type
+                        ? <span className={`badge ${lead.device_type.toLowerCase()==='mobile' ? 'badge-blue' : 'badge-purple'}`}>{lead.device_type}</span>
+                        : lead.origem
+                          ? <span className="badge badge-cyan">{lead.origem}</span>
+                          : <span className="text-muted">—</span>
+                      }
+                    </td>
+                    <td><span className={`badge ${sit.cls}`}>{sit.label}</span></td>
+                    <td className="text-muted text-small">{fmtDate(lead.created_at)}</td>
+                    <td>
+                      <select
+                        className={`status-select ${statusClass[lead.status] || 'status-novo-lead'}`}
+                        value={lead.status || 'Novo Lead'}
+                        onChange={e => handleStatusChange(lead.id, e.target.value)}
+                        disabled={updating === lead.id}
+                      >
+                        {STATUS_OPTIONS.map(s=><option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
