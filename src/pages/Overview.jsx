@@ -162,7 +162,19 @@ export default function Overview() {
     }
   }, [])
 
-  useEffect(() => { loadData() }, [loadData])
+  useEffect(() => {
+    loadData()
+
+    // Realtime: re-busca os dados agregados sempre que qualquer tabela mudar
+    const channel = supabase
+      .channel('overview-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' },    () => loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sessions' }, () => loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' },   () => loadData())
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [loadData])
 
   return (
     <div className="page-container fade-in">

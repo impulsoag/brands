@@ -100,7 +100,31 @@ export default function Events() {
     }
   }, [fType, fPeriod])
 
-  useEffect(() => { loadEvents() }, [loadEvents])
+  useEffect(() => {
+    loadEvents()
+
+    const channel = supabase
+      .channel('events-realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'events' }, ({ new: row }) => {
+        setEvents(prev => {
+          const updated = [row, ...prev]
+          // Recalcula summary cards
+          const clicks    = updated.filter(e => e.evento === 'cta_click').length
+          const scrolls   = updated.filter(e => e.evento === 'scroll_depth').length
+          const faqs      = updated.filter(e => e.evento === 'faq_click').length
+          const totalTime = updated
+            .filter(e => e.evento === 'time_on_page' && e.time_seconds)
+            .reduce((acc, e) => acc + (e.time_seconds || 0), 0)
+          setSummary({ clicks, scrolls, faqs, totalTime })
+          // Adiciona novo tipo ao filtro se necessário
+          if (row.evento) setEventTypes(t => t.includes(row.evento) ? t : [...t, row.evento])
+          return updated
+        })
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [loadEvents])
 
   // Formata tempo total em horas/minutos
   function fmtTime(seconds) {

@@ -89,3 +89,9 @@ create policy "events_insert_public"
 -- Política: update em leads (para mudar status no dashboard)
 create policy "leads_update_public"
   on public.leads for update using (true) with check (true);
+
+-- ── REALTIME ─────────────────────────────────────────────────
+-- Habilita replication para as 3 tabelas (necessário para Realtime funcionar)
+alter publication supabase_realtime add table public.leads;
+alter publication supabase_realtime add table public.sessions;
+alter publication supabase_realtime add table public.events;

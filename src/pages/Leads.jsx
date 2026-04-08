@@ -77,7 +77,22 @@ export default function Leads() {
     }
   }, [fPeriod])
 
-  useEffect(() => { loadLeads() }, [loadLeads])
+  useEffect(() => {
+    loadLeads()
+
+    // Realtime: novos leads entram no topo, updates de status refletem imediatamente
+    const channel = supabase
+      .channel('leads-realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'leads' }, ({ new: row }) => {
+        setLeads(prev => [row, ...prev])
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'leads' }, ({ new: row }) => {
+        setLeads(prev => prev.map(l => l.id === row.id ? row : l))
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [loadLeads])
 
   // Aplica filtros locais
   useEffect(() => {

@@ -75,7 +75,21 @@ export default function Sessions() {
     }
   }, [fPeriod])
 
-  useEffect(() => { loadSessions() }, [loadSessions])
+  useEffect(() => {
+    loadSessions()
+
+    const channel = supabase
+      .channel('sessions-realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sessions' }, ({ new: row }) => {
+        setSessions(prev => [row, ...prev])
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'sessions' }, ({ new: row }) => {
+        setSessions(prev => prev.map(s => s.id === row.id ? row : s))
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [loadSessions])
 
   return (
     <div className="page-container fade-in">
