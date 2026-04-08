@@ -3,6 +3,9 @@ import { MousePointerClick, ArrowDownUp, HelpCircle, Clock, Activity } from 'luc
 import StatCard from '../components/StatCard.jsx'
 import { supabase } from '../lib/supabase.js'
 
+// Cache em memória por período
+const _cache = {}
+
 // Configuração de cores por tipo de evento
 const EVENT_COLORS = {
   page_view:    'badge-blue',
@@ -50,15 +53,17 @@ function fmtDate(iso) {
 }
 
 export default function Events() {
-  const [events, setEvents]       = useState([])
-  const [loading, setLoading]     = useState(true)
-  const [fType, setFType]         = useState('')
   const [fPeriod, setFPeriod]     = useState('7')
-  const [eventTypes, setEventTypes] = useState([])
-  const [summary, setSummary]     = useState({ clicks: 0, scrolls: 0, faqs: 0, totalTime: 0 })
+  const [fType, setFType]         = useState('')
 
-  const loadEvents = useCallback(async () => {
-    setLoading(true)
+  const cached = _cache[fPeriod]
+  const [events, setEvents]       = useState(cached?.events || [])
+  const [loading, setLoading]     = useState(!cached)
+  const [eventTypes, setEventTypes] = useState(cached?.eventTypes || [])
+  const [summary, setSummary]     = useState(cached?.summary || { clicks: 0, scrolls: 0, faqs: 0, totalTime: 0 })
+
+  const loadEvents = useCallback(async (showLoading = false) => {
+    if (showLoading) setLoading(true)
     try {
       const since = new Date()
       since.setDate(since.getDate() - Number(fPeriod))
@@ -92,7 +97,10 @@ export default function Events() {
       const totalTime  = (data || [])
         .filter(e => e.evento === 'time_on_page' && e.time_seconds)
         .reduce((acc, e) => acc + (e.time_seconds || 0), 0)
-      setSummary({ clicks, scrolls, faqs, totalTime })
+      const newSummary = { clicks, scrolls, faqs, totalTime }
+      setSummary(newSummary)
+
+      _cache[fPeriod] = { events: data || [], eventTypes: types, summary: newSummary }
     } catch (err) {
       console.error('[Events] Erro ao carregar:', err)
     } finally {
@@ -101,7 +109,7 @@ export default function Events() {
   }, [fType, fPeriod])
 
   useEffect(() => {
-    loadEvents()
+    loadEvents(!_cache[fPeriod])
 
     const channel = supabase
       .channel('events-realtime')

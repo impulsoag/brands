@@ -2,6 +2,9 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { Users } from 'lucide-react'
 import { supabase } from '../lib/supabase.js'
 
+// Cache em memória por período — persiste entre trocas de aba
+const _cache = {}
+
 // Opções de status disponíveis
 const STATUS_OPTIONS = ['Nova', 'Contatado', 'Fechado', 'Perdido']
 
@@ -29,25 +32,27 @@ function fmtDate(iso) {
 }
 
 export default function Leads() {
-  const [leads, setLeads]             = useState([])
-  const [filtered, setFiltered]       = useState([])
-  const [loading, setLoading]         = useState(true)
-  const [updating, setUpdating]       = useState(null) // id do lead sendo atualizado
+  const [fPeriod, setFPeriod]         = useState('30')
+
+  const cached = _cache[fPeriod]
+  const [leads, setLeads]             = useState(cached?.leads || [])
+  const [filtered, setFiltered]       = useState(cached?.leads || [])
+  const [loading, setLoading]         = useState(!cached)
+  const [updating, setUpdating]       = useState(null)
 
   // Filtros
   const [fInfluencer, setFInfluencer] = useState('')
   const [fCombo, setFCombo]           = useState('')
   const [fOrigin, setFOrigin]         = useState('')
   const [fStatus, setFStatus]         = useState('')
-  const [fPeriod, setFPeriod]         = useState('30')
 
   // Opções únicas para os filtros
-  const [optInfluencers, setOptInfluencers] = useState([])
-  const [optCombos, setOptCombos]           = useState([])
-  const [optOrigins, setOptOrigins]         = useState([])
+  const [optInfluencers, setOptInfluencers] = useState(cached?.optInfluencers || [])
+  const [optCombos, setOptCombos]           = useState(cached?.optCombos || [])
+  const [optOrigins, setOptOrigins]         = useState(cached?.optOrigins || [])
 
-  const loadLeads = useCallback(async () => {
-    setLoading(true)
+  const loadLeads = useCallback(async (showLoading = false) => {
+    if (showLoading) setLoading(true)
     try {
       const since = new Date()
       since.setDate(since.getDate() - Number(fPeriod))
@@ -70,6 +75,8 @@ export default function Leads() {
       setOptInfluencers(influencers)
       setOptCombos(combos)
       setOptOrigins(origins)
+
+      _cache[fPeriod] = { leads: data || [], optInfluencers: influencers, optCombos: combos, optOrigins: origins }
     } catch (err) {
       console.error('[Leads] Erro ao carregar:', err)
     } finally {
@@ -78,7 +85,7 @@ export default function Leads() {
   }, [fPeriod])
 
   useEffect(() => {
-    loadLeads()
+    loadLeads(!_cache[fPeriod])
 
     // Realtime: novos leads entram no topo, updates de status refletem imediatamente
     const channel = supabase

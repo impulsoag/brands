@@ -13,6 +13,9 @@ import { supabase } from '../lib/supabase.js'
 // Cores para o PieChart
 const PIE_COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4']
 
+// Cache em memória — persiste enquanto a aba do browser estiver aberta
+let _cache = null
+
 // Formata data para exibição no gráfico (dd/MM)
 function fmtDate(iso) {
   const d = new Date(iso)
@@ -38,14 +41,14 @@ function CustomTooltip({ active, payload, label }) {
 }
 
 export default function Overview() {
-  const [loading, setLoading]   = useState(true)
-  const [stats, setStats]       = useState({ leads: 0, sessoes: 0, eventos: 0, conversao: 0 })
-  const [lineData, setLineData] = useState([])
-  const [barData, setBarData]   = useState([])
-  const [pieData, setPieData]   = useState([])
-  const [insights, setInsights] = useState([])
+  const [loading, setLoading]   = useState(!_cache)
+  const [stats, setStats]       = useState(_cache?.stats    || { leads: 0, sessoes: 0, eventos: 0, conversao: 0 })
+  const [lineData, setLineData] = useState(_cache?.lineData || [])
+  const [barData, setBarData]   = useState(_cache?.barData  || [])
+  const [pieData, setPieData]   = useState(_cache?.pieData  || [])
+  const [insights, setInsights] = useState(_cache?.insights || [])
 
-  const loadData = useCallback(async (showLoading = true) => {
+  const loadData = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true)
     try {
       // ── Contagens gerais ──────────────────────────────────────────
@@ -64,12 +67,13 @@ export default function Overview() {
         ? ((totalLeads / totalSessoes) * 100).toFixed(1)
         : '0.0'
 
-      setStats({
+      const newStats = {
         leads: totalLeads ?? 0,
         sessoes: totalSessoes ?? 0,
         eventos: totalEventos ?? 0,
         conversao,
-      })
+      }
+      setStats(newStats)
 
       // ── Leads por dia (últimos 14 dias) ───────────────────────────
       const since = new Date()
@@ -93,7 +97,8 @@ export default function Overview() {
         if (key in byDay) byDay[key]++
       })
 
-      setLineData(Object.entries(byDay).map(([date, marcas]) => ({ date, marcas })))
+      const newLineData = Object.entries(byDay).map(([date, marcas]) => ({ date, marcas }))
+      setLineData(newLineData)
 
       // ── Tipos de eventos (top 8) ──────────────────────────────────
       const { data: eventsRaw } = await supabase
@@ -104,11 +109,11 @@ export default function Overview() {
       ;(eventsRaw || []).forEach(e => {
         evCount[e.evento] = (evCount[e.evento] || 0) + 1
       })
-      const sorted = Object.entries(evCount)
+      const newBarData = Object.entries(evCount)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 8)
         .map(([tipo, qtd]) => ({ tipo, qtd }))
-      setBarData(sorted)
+      setBarData(newBarData)
 
       // ── Origem dos cliques (PieChart) ─────────────────────────────
       const { data: origensRaw } = await supabase
@@ -121,9 +126,8 @@ export default function Overview() {
         const src = e.utm_source || 'direto'
         origCount[src] = (origCount[src] || 0) + 1
       })
-      setPieData(
-        Object.entries(origCount).map(([name, value]) => ({ name, value }))
-      )
+      const newPieData = Object.entries(origCount).map(([name, value]) => ({ name, value }))
+      setPieData(newPieData)
 
       // ── Insights dinâmicos ────────────────────────────────────────
       const { data: combosRaw } = await supabase
@@ -145,16 +149,19 @@ export default function Overview() {
         .eq('evento', 'cta_click')
         .gte('created_at', new Date(new Date().setHours(0,0,0,0)).toISOString())
 
-      const insightsList = []
+      const newInsights = []
       if (topCombo)
-        insightsList.push(`Combo mais popular: "${topCombo[0]}" com ${topCombo[1]} marcas captadas`)
+        newInsights.push(`Combo mais popular: "${topCombo[0]}" com ${topCombo[1]} marcas captadas`)
       if (topInflu)
-        insightsList.push(`Influenciador com mais conversões: ${topInflu[0]} (${topInflu[1]} leads)`)
-      insightsList.push(`Cliques no CTA hoje: ${clicksHoje ?? 0}`)
+        newInsights.push(`Influenciador com mais conversões: ${topInflu[0]} (${topInflu[1]} leads)`)
+      newInsights.push(`Cliques no CTA hoje: ${clicksHoje ?? 0}`)
       if (conversao > 0)
-        insightsList.push(`Taxa de conversão sessão → marca: ${conversao}%`)
+        newInsights.push(`Taxa de conversão sessão → marca: ${conversao}%`)
 
-      setInsights(insightsList)
+      setInsights(newInsights)
+
+      // Salva no cache para próximas visitas à aba
+      _cache = { stats: newStats, lineData: newLineData, barData: newBarData, pieData: newPieData, insights: newInsights }
     } catch (err) {
       console.error('[Overview] Erro ao carregar dados:', err)
     } finally {
@@ -163,7 +170,8 @@ export default function Overview() {
   }, [])
 
   useEffect(() => {
-    loadData()
+    // Se não tem cache, mostra loading; senão atualiza silenciosamente
+    loadData(!_cache)
 
     // Realtime: re-busca os dados agregados sem mostrar loading spinner
     const channel = supabase

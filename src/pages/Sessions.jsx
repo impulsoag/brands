@@ -2,6 +2,9 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { MonitorSmartphone } from 'lucide-react'
 import { supabase } from '../lib/supabase.js'
 
+// Cache em memória por período
+const _cache = {}
+
 // Badge de device type
 function DeviceBadge({ type }) {
   if (!type) return <span className="text-muted">—</span>
@@ -49,12 +52,14 @@ function fmtDate(iso) {
 }
 
 export default function Sessions() {
-  const [sessions, setSessions] = useState([])
-  const [loading, setLoading]   = useState(true)
   const [fPeriod, setFPeriod]   = useState('7')
 
-  const loadSessions = useCallback(async () => {
-    setLoading(true)
+  const cached = _cache[fPeriod]
+  const [sessions, setSessions] = useState(cached || [])
+  const [loading, setLoading]   = useState(!cached)
+
+  const loadSessions = useCallback(async (showLoading = false) => {
+    if (showLoading) setLoading(true)
     try {
       const since = new Date()
       since.setDate(since.getDate() - Number(fPeriod))
@@ -68,6 +73,7 @@ export default function Sessions() {
 
       if (error) throw error
       setSessions(data || [])
+      _cache[fPeriod] = data || []
     } catch (err) {
       console.error('[Sessions] Erro ao carregar:', err)
     } finally {
@@ -76,7 +82,7 @@ export default function Sessions() {
   }, [fPeriod])
 
   useEffect(() => {
-    loadSessions()
+    loadSessions(!_cache[fPeriod])
 
     const channel = supabase
       .channel('sessions-realtime')
