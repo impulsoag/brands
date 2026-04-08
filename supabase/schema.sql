@@ -7,6 +7,7 @@
 create table if not exists public.leads (
   id          uuid primary key default gen_random_uuid(),
   created_at  timestamptz not null default now(),
+  nome        text,
   numero      text,
   influencer  text,
   combo       text,
@@ -15,6 +16,9 @@ create table if not exists public.leads (
   status      text not null default 'Nova'
     check (status in ('Nova','Contatado','Fechado','Perdido'))
 );
+
+-- Se a tabela já existia, adicione a coluna com:
+-- alter table public.leads add column if not exists nome text;
 
 -- ── 2. SESSIONS ─────────────────────────────────────────────
 create table if not exists public.sessions (

@@ -218,6 +218,7 @@ export default function Leads() {
             <thead>
               <tr>
                 <th>#</th>
+                <th>Nome da Marca</th>
                 <th>Número</th>
                 <th>Influenciador</th>
                 <th>Combo</th>
@@ -231,7 +232,8 @@ export default function Leads() {
               {filtered.map((lead, idx) => (
                 <tr key={lead.id}>
                   <td className="text-muted text-small">{idx + 1}</td>
-                  <td className="td-primary td-mono">{lead.numero || '—'}</td>
+                  <td className="td-primary">{lead.nome || <span className="text-muted">—</span>}</td>
+                  <td className="td-mono">{lead.numero || '—'}</td>
                   <td>{lead.influencer || <span className="text-muted">—</span>}</td>
                   <td>
                     {lead.combo
