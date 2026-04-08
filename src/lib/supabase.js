@@ -1,0 +1,20 @@
+// Configuração do cliente Supabase
+// As variáveis de ambiente são definidas no arquivo .env (não commitar!)
+// Ver .env.example para o formato correto
+
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl  = import.meta.env.VITE_SUPABASE_URL
+const supabaseKey  = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+if (!supabaseUrl || !supabaseKey) {
+  console.warn(
+    '[Supabase] Variáveis de ambiente não encontradas.\n' +
+    'Copie o .env.example para .env e preencha com suas credenciais.'
+  )
+}
+
+export const supabase = createClient(
+  supabaseUrl  || 'https://placeholder.supabase.co',
+  supabaseKey  || 'placeholder-key'
+)
