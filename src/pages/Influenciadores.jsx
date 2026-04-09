@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { Plus, X, Instagram, Globe, CheckCircle, XCircle } from 'lucide-react'
 import { supabase } from '../lib/supabase.js'
 
@@ -39,7 +40,7 @@ function ModalCadastrar({ onClose, onSaved }) {
     onClose()
   }
 
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
@@ -73,7 +74,8 @@ function ModalCadastrar({ onClose, onSaved }) {
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
