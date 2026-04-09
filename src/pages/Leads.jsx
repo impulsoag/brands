@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react'
-import { Users } from 'lucide-react'
+import { Users, Trash2 } from 'lucide-react'
 import { supabase } from '../lib/supabase.js'
 
 const STATUS_OPTIONS = ['Novo Lead', 'Em Contato', 'Em Negociação', 'Fechado']
@@ -92,6 +92,18 @@ export default function Leads() {
     setFiltered(list)
   }, [leads, fInfluencer, fStatus, fDevice])
 
+  async function handleDelete(id) {
+    if (!window.confirm('Tem certeza que deseja excluir este lead?')) return
+    try {
+      const { error } = await supabase.from('leads').delete().eq('id', id)
+      if (error) throw error
+      setLeads(prev => prev.filter(l => l.id !== id))
+    } catch(err) {
+      console.error('[Leads] delete', err)
+      alert('Erro ao excluir o lead. Tente novamente.')
+    }
+  }
+
   async function handleStatusChange(id, newStatus) {
     setUpdating(id)
     try {
@@ -177,6 +189,7 @@ export default function Leads() {
                 <th>Situação</th>
                 <th>Data</th>
                 <th>Status</th>
+                <th>Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -207,6 +220,21 @@ export default function Leads() {
                       >
                         {STATUS_OPTIONS.map(s=><option key={s} value={s}>{s}</option>)}
                       </select>
+                    </td>
+                    <td>
+                      <button
+                        onClick={() => handleDelete(lead.id)}
+                        style={{
+                          background: 'none', border: 'none', cursor: 'pointer',
+                          color: '#ef4444', padding: '4px 6px', borderRadius: 'var(--radius-sm)',
+                          display: 'flex', alignItems: 'center', transition: 'color .15s',
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.color = '#dc2626'}
+                        onMouseLeave={e => e.currentTarget.style.color = '#ef4444'}
+                        title="Excluir lead"
+                      >
+                        <Trash2 size={15} />
+                      </button>
                     </td>
                   </tr>
                 )
