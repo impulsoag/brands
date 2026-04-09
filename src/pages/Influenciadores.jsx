@@ -41,8 +41,25 @@ function ModalCadastrar({ onClose, onSaved }) {
   }
 
   return createPortal(
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
+    <>
+      {/* Backdrop */}
+      <div onClick={onClose} style={{
+        position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+        background: 'rgba(0,0,0,0.6)', zIndex: 9998,
+      }} />
+
+      {/* Modal container */}
+      <div onClick={e => e.stopPropagation()} style={{
+        position: 'fixed',
+        top: '50%', left: '50%',
+        transform: 'translate(-50%, -50%)',
+        zIndex: 9999,
+        width: '100%', maxWidth: 480,
+        background: 'var(--bg-card)',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-lg)',
+        boxShadow: 'var(--shadow-modal)',
+      }}>
         <div className="modal-header">
           <span className="modal-title">Cadastrar Influenciador</span>
           <button className="modal-close" onClick={onClose}><X size={18} /></button>
@@ -74,7 +91,7 @@ function ModalCadastrar({ onClose, onSaved }) {
           </div>
         </form>
       </div>
-    </div>,
+    </>,
     document.body
   )
 }
