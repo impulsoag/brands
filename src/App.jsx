@@ -9,6 +9,7 @@ import Events from './pages/Events.jsx'
 import Sessions from './pages/Sessions.jsx'
 import Usuarios from './pages/Usuarios.jsx'
 import Configuracoes from './pages/Configuracoes.jsx'
+import Influenciadores from './pages/Influenciadores.jsx'
 
 function ProtectedLayout() {
   const { user, loading } = useAuth()
@@ -34,7 +35,8 @@ function ProtectedLayout() {
           <Route path="/eventos"      element={<Events />} />
           <Route path="/sessoes"      element={<Sessions />} />
           <Route path="/usuarios"     element={<Usuarios />} />
-          <Route path="/configuracoes" element={<Configuracoes />} />
+          <Route path="/configuracoes"    element={<Configuracoes />} />
+          <Route path="/influenciadores" element={<Influenciadores />} />
           <Route path="*"             element={<Navigate to="/visao" replace />} />
         </Routes>
       </main>
