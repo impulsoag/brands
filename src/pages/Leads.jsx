@@ -14,17 +14,23 @@ const statusClass = {
 // Situação auto-calculada pela idade do lead
 function getSituacao(createdAt) {
   const dias = Math.floor((Date.now() - new Date(createdAt).getTime()) / 86400000)
-  if (dias >= 15) return { label: 'Crítico', cls: 'situacao-critico' }
+  if (dias >= 14) return { label: 'Urgente', cls: 'situacao-urgente' }
   if (dias >= 7)  return { label: 'Alerta',  cls: 'situacao-alerta'  }
   return               { label: 'Novo',    cls: 'situacao-novo'    }
 }
 
 function fmtDate(iso) {
   if (!iso) return '—'
-  return new Date(iso).toLocaleString('pt-BR', {
-    day:'2-digit', month:'2-digit', year:'2-digit',
-    hour:'2-digit', minute:'2-digit',
-  })
+  const d = new Date(iso)
+  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`
+}
+
+function fmtTelefone(num) {
+  if (!num) return '—'
+  const digits = String(num).replace(/\D/g, '')
+  if (digits.length === 11) return `(${digits.slice(0,2)}) ${digits.slice(2,7)}-${digits.slice(7)}`
+  if (digits.length === 10) return `(${digits.slice(0,2)}) ${digits.slice(2,6)}-${digits.slice(6)}`
+  return num
 }
 
 const _cache = {}
@@ -100,7 +106,7 @@ export default function Leads() {
   }
 
   // Contadores de situação
-  const counts = { Novo: 0, Alerta: 0, Crítico: 0 }
+  const counts = { Novo: 0, Alerta: 0, Urgente: 0 }
   leads.forEach(l => { counts[getSituacao(l.created_at).label]++ })
 
   return (
@@ -113,8 +119,8 @@ export default function Leads() {
         {/* Situação summary */}
         <div style={{ display:'flex', gap:8 }}>
           <span className={`badge situacao-novo`}>{counts.Novo} Novos</span>
-          {counts.Alerta  > 0 && <span className={`badge situacao-alerta`}>{counts.Alerta} Alerta</span>}
-          {counts.Crítico > 0 && <span className={`badge situacao-critico`}>{counts.Crítico} Crítico</span>}
+          {counts.Alerta  > 0 && <span className="badge situacao-alerta">{counts.Alerta} Alerta</span>}
+          {counts.Urgente > 0 && <span className="badge situacao-urgente">{counts.Urgente} Urgente</span>}
         </div>
       </div>
 
@@ -180,7 +186,7 @@ export default function Leads() {
                   <tr key={lead.id}>
                     <td className="text-muted text-small">{idx+1}</td>
                     <td className="td-primary">{lead.nome || <span className="text-muted">—</span>}</td>
-                    <td className="td-mono">{lead.numero || '—'}</td>
+                    <td className="td-mono">{fmtTelefone(lead.numero)}</td>
                     <td>{lead.influencer || <span className="text-muted">—</span>}</td>
                     <td>
                       {lead.device_type
