@@ -77,6 +77,8 @@ create table if not exists public.bugs (
   type          text,
   message       text,
   error         text,
+  severity      text not null default 'medium'
+    check (severity in ('low', 'medium', 'high')),
   session_id    text,
   event_id      text,
   page_url      text,
@@ -101,6 +103,8 @@ create index if not exists leads_session_id_idx      on public.leads     (sessio
 
 create index if not exists bugs_created_at_idx       on public.bugs      (created_at desc);
 create index if not exists bugs_session_id_idx       on public.bugs      (session_id);
+create index if not exists bugs_severity_idx         on public.bugs      (severity);
+create index if not exists idx_leads_session_id      on public.leads     (session_id);
 
 -- ── ROW LEVEL SECURITY ────────────────────────────────────────
 alter table public.profiles    enable row level security;
@@ -187,6 +191,22 @@ alter publication supabase_realtime add table public.leads;
 alter publication supabase_realtime add table public.sessions;
 alter publication supabase_realtime add table public.events;
 alter publication supabase_realtime add table public.influencers;
+
+-- ── VIEW: conversão por fonte de tráfego ─────────────────────
+create or replace view public.conversion_by_source as
+select
+  coalesce(s.utm_source, 'direto')                            as utm_source,
+  count(distinct s.session_id)                                as total_sessions,
+  count(distinct l.session_id)                                as total_leads,
+  round(
+    count(distinct l.session_id)::numeric
+    / nullif(count(distinct s.session_id), 0) * 100,
+    2
+  )                                                           as conversion_rate
+from public.sessions s
+left join public.leads l on l.session_id = s.session_id
+group by coalesce(s.utm_source, 'direto')
+order by total_sessions desc;
 
 -- ── TRIGGER: criar profile ao cadastrar usuário ───────────────
 create or replace function public.handle_new_user()
