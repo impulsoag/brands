@@ -11,7 +11,6 @@ const statusClass = {
   'Fechado':        'status-fechado',
 }
 
-// Situação auto-calculada pela idade do lead
 function getSituacao(createdAt) {
   const dias = Math.floor((Date.now() - new Date(createdAt).getTime()) / 86400000)
   if (dias >= 14) return { label: 'Urgente', cls: 'situacao-urgente' }
@@ -53,7 +52,8 @@ export default function Leads() {
       const since = new Date()
       since.setDate(since.getDate() - Number(fPeriod))
       const { data, error } = await supabase
-        .from('leads').select('*')
+        .from('leads')
+        .select('id,created_at,nome,numero,device_type,influencer,utm_source,combo,session_id,status')
         .gte('created_at', since.toISOString())
         .order('created_at', { ascending: false })
         .limit(500)
@@ -61,7 +61,7 @@ export default function Leads() {
 
       const rows = data || []
       setLeads(rows)
-      const infs = [...new Set(rows.map(l=>l.influencer).filter(Boolean))]
+      const infs = [...new Set(rows.map(l => l.influencer).filter(Boolean))]
       setOptInfluencers(infs)
       _cache[fPeriod] = { leads: rows, optInfluencers: infs }
     } catch(err) {
@@ -74,11 +74,11 @@ export default function Leads() {
   useEffect(() => {
     loadLeads(!_cache[fPeriod])
     const ch = supabase.channel('leads-rt')
-      .on('postgres_changes', { event:'INSERT', schema:'public', table:'leads' }, ({ new: row }) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'leads' }, ({ new: row }) => {
         setLeads(prev => [row, ...prev])
       })
-      .on('postgres_changes', { event:'UPDATE', schema:'public', table:'leads' }, ({ new: row }) => {
-        setLeads(prev => prev.map(l => l.id===row.id ? row : l))
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'leads' }, ({ new: row }) => {
+        setLeads(prev => prev.map(l => l.id === row.id ? row : l))
       })
       .subscribe()
     return () => { supabase.removeChannel(ch) }
@@ -88,7 +88,7 @@ export default function Leads() {
     let list = leads
     if (fInfluencer) list = list.filter(l => l.influencer === fInfluencer)
     if (fStatus)     list = list.filter(l => l.status === fStatus)
-    if (fDevice)     list = list.filter(l => (l.device_type||'').toLowerCase() === fDevice)
+    if (fDevice)     list = list.filter(l => (l.device_type || '').toLowerCase() === fDevice)
     setFiltered(list)
   }, [leads, fInfluencer, fStatus, fDevice])
 
@@ -109,7 +109,7 @@ export default function Leads() {
     try {
       const { error } = await supabase.from('leads').update({ status: newStatus }).eq('id', id)
       if (error) throw error
-      setLeads(prev => prev.map(l => l.id===id ? { ...l, status: newStatus } : l))
+      setLeads(prev => prev.map(l => l.id === id ? { ...l, status: newStatus } : l))
     } catch(err) {
       console.error('[Leads] status', err)
     } finally {
@@ -117,30 +117,27 @@ export default function Leads() {
     }
   }
 
-  // Contadores de situação
   const counts = { Novo: 0, Alerta: 0, Urgente: 0 }
   leads.forEach(l => { counts[getSituacao(l.created_at).label]++ })
 
   return (
     <div className="page-container fade-in">
-      <div className="page-header" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 className="page-title">Marcas</h1>
           <p className="page-subtitle">{filtered.length} marcas exibidas</p>
         </div>
-        {/* Situação summary */}
-        <div style={{ display:'flex', gap:8 }}>
-          <span className={`badge situacao-novo`}>{counts.Novo} Novos</span>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <span className="badge situacao-novo">{counts.Novo} Novos</span>
           {counts.Alerta  > 0 && <span className="badge situacao-alerta">{counts.Alerta} Alerta</span>}
           {counts.Urgente > 0 && <span className="badge situacao-urgente">{counts.Urgente} Urgente</span>}
         </div>
       </div>
 
-      {/* Filtros */}
       <div className="filters-bar">
         <span className="filters-label">Filtros:</span>
 
-        <select className="filter-select" value={fPeriod} onChange={e=>setFPeriod(e.target.value)}>
+        <select className="filter-select" value={fPeriod} onChange={e => setFPeriod(e.target.value)}>
           <option value="7">Últimos 7 dias</option>
           <option value="14">Últimos 14 dias</option>
           <option value="30">Últimos 30 dias</option>
@@ -148,25 +145,27 @@ export default function Leads() {
           <option value="365">Último ano</option>
         </select>
 
-        <select className="filter-select" value={fInfluencer} onChange={e=>setFInfluencer(e.target.value)}>
+        <select className="filter-select" value={fInfluencer} onChange={e => setFInfluencer(e.target.value)}>
           <option value="">Todos os influenciadores</option>
-          {optInfluencers.map(v=><option key={v} value={v}>{v}</option>)}
+          {optInfluencers.map(v => <option key={v} value={v}>{v}</option>)}
         </select>
 
-        <select className="filter-select" value={fDevice} onChange={e=>setFDevice(e.target.value)}>
+        <select className="filter-select" value={fDevice} onChange={e => setFDevice(e.target.value)}>
           <option value="">Todos dispositivos</option>
           <option value="mobile">Mobile</option>
           <option value="desktop">Desktop</option>
         </select>
 
-        <select className="filter-select" value={fStatus} onChange={e=>setFStatus(e.target.value)}>
+        <select className="filter-select" value={fStatus} onChange={e => setFStatus(e.target.value)}>
           <option value="">Todos os status</option>
-          {STATUS_OPTIONS.map(v=><option key={v} value={v}>{v}</option>)}
+          {STATUS_OPTIONS.map(v => <option key={v} value={v}>{v}</option>)}
         </select>
 
-        {(fInfluencer||fStatus||fDevice) && (
-          <button onClick={()=>{setFInfluencer('');setFStatus('');setFDevice('')}}
-            style={{background:'none',border:'none',color:'var(--accent-red)',cursor:'pointer',fontSize:12,fontFamily:'var(--font-sans)'}}>
+        {(fInfluencer || fStatus || fDevice) && (
+          <button
+            onClick={() => { setFInfluencer(''); setFStatus(''); setFDevice('') }}
+            style={{ background: 'none', border: 'none', color: 'var(--accent-red)', cursor: 'pointer', fontSize: 12, fontFamily: 'var(--font-sans)' }}
+          >
             Limpar filtros
           </button>
         )}
@@ -185,7 +184,8 @@ export default function Leads() {
                 <th>Nome da Marca</th>
                 <th>Número</th>
                 <th>Influenciador</th>
-                <th>Origem</th>
+                <th>Dispositivo</th>
+                <th>Origem (UTM)</th>
                 <th>Situação</th>
                 <th>Data</th>
                 <th>Status</th>
@@ -197,16 +197,20 @@ export default function Leads() {
                 const sit = getSituacao(lead.created_at)
                 return (
                   <tr key={lead.id}>
-                    <td className="text-muted text-small">{idx+1}</td>
+                    <td className="text-muted text-small">{idx + 1}</td>
                     <td className="td-primary">{lead.nome || <span className="text-muted">—</span>}</td>
                     <td className="td-mono">{fmtTelefone(lead.numero)}</td>
                     <td>{lead.influencer || <span className="text-muted">—</span>}</td>
                     <td>
                       {lead.device_type
-                        ? <span className={`badge ${lead.device_type.toLowerCase()==='mobile' ? 'badge-blue' : 'badge-purple'}`}>{lead.device_type}</span>
-                        : lead.origem
-                          ? <span className="badge badge-cyan">{lead.origem}</span>
-                          : <span className="text-muted">—</span>
+                        ? <span className={`badge ${lead.device_type.toLowerCase() === 'mobile' ? 'badge-blue' : 'badge-purple'}`}>{lead.device_type}</span>
+                        : <span className="text-muted">—</span>
+                      }
+                    </td>
+                    <td>
+                      {lead.utm_source
+                        ? <span className="badge badge-cyan">{lead.utm_source}</span>
+                        : <span className="text-muted" style={{ fontSize: 12 }}>direto</span>
                       }
                     </td>
                     <td><span className={`badge ${sit.cls}`}>{sit.label}</span></td>
@@ -218,7 +222,7 @@ export default function Leads() {
                         onChange={e => handleStatusChange(lead.id, e.target.value)}
                         disabled={updating === lead.id}
                       >
-                        {STATUS_OPTIONS.map(s=><option key={s} value={s}>{s}</option>)}
+                        {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                     </td>
                     <td>

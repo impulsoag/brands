@@ -5,7 +5,7 @@ import {
 } from 'recharts'
 import {
   Users, MousePointerClick, Activity, TrendingUp, Lightbulb,
-  Plus, X, Trash2, ExternalLink, Instagram, Globe, RefreshCw,
+  Plus, X, Trash2, Instagram, Globe,
 } from 'lucide-react'
 import StatCard from '../components/StatCard.jsx'
 import { supabase } from '../lib/supabase.js'
@@ -107,21 +107,18 @@ function InfluencerCard({ inf, metrics, onDelete }) {
 
   return (
     <div className="influencer-card">
-      {/* Status da landing */}
       <div
         className="influencer-status-dot"
         title={inf.is_active ? 'Landing ativa' : 'Landing inativa'}
         style={{ background: inf.is_active ? 'var(--accent-green)' : 'var(--accent-red)' }}
       />
 
-      {/* Ações */}
       <div className="influencer-card-actions">
         <button className="influencer-action-btn" onClick={() => onDelete(inf.id)} title="Remover">
           <Trash2 size={13}/>
         </button>
       </div>
 
-      {/* Avatar */}
       <div className="influencer-avatar">
         {inf.foto_url
           ? <img src={inf.foto_url} alt={inf.nome} onError={e=>{e.target.style.display='none'}} />
@@ -132,7 +129,6 @@ function InfluencerCard({ inf, metrics, onDelete }) {
       <div className="influencer-name">{inf.nome}</div>
       <div className="influencer-handle">@{inf.handle}</div>
 
-      {/* Stats */}
       <div className="influencer-stats">
         <div className="influencer-stat">
           <div className="influencer-stat-value">{sessoes}</div>
@@ -148,7 +144,6 @@ function InfluencerCard({ inf, metrics, onDelete }) {
         </div>
       </div>
 
-      {/* Links */}
       <div className="influencer-links">
         {inf.link_perfil && (
           <a className="influencer-link-btn" href={inf.link_perfil} target="_blank" rel="noopener noreferrer">
@@ -175,7 +170,7 @@ export default function Overview() {
   const [pieData, setPieData]       = useState(_overviewCache?.pieData  || [])
   const [insights, setInsights]     = useState(_overviewCache?.insights || [])
   const [influencers, setInfluencers] = useState([])
-  const [metrics, setMetrics]       = useState({}) // { [handle]: { sessoes, marcas } }
+  const [metrics, setMetrics]       = useState({})
   const [modal, setModal]           = useState(false)
 
   const loadData = useCallback(async (showLoading = false) => {
@@ -191,57 +186,64 @@ export default function Overview() {
         supabase.from('events').select('*',   { count:'exact', head:true }),
       ])
 
-      const conversao = totalSessoes > 0 ? ((totalLeads/totalSessoes)*100).toFixed(1) : '0.0'
-      const newStats  = { leads: totalLeads??0, sessoes: totalSessoes??0, eventos: totalEventos??0, conversao }
+      // Conversão: leads / sessions
+      const conversao = totalSessoes > 0 ? ((totalLeads / totalSessoes) * 100).toFixed(1) : '0.0'
+      const newStats  = { leads: totalLeads ?? 0, sessoes: totalSessoes ?? 0, eventos: totalEventos ?? 0, conversao }
       setStats(newStats)
 
       // Leads por dia (14 dias)
-      const since14 = new Date(); since14.setDate(since14.getDate()-14)
+      const since14 = new Date(); since14.setDate(since14.getDate() - 14)
       const { data: leadsRaw } = await supabase.from('leads').select('created_at')
-        .gte('created_at', since14.toISOString()).order('created_at',{ascending:true})
+        .gte('created_at', since14.toISOString()).order('created_at', { ascending: true })
       const byDay = {}
-      for (let i=0; i<14; i++) {
-        const d = new Date(); d.setDate(d.getDate()-(13-i))
+      for (let i = 0; i < 14; i++) {
+        const d = new Date(); d.setDate(d.getDate() - (13 - i))
         byDay[fmtDate(d.toISOString())] = 0
       }
-      ;(leadsRaw||[]).forEach(r => { const k=fmtDate(r.created_at); if(k in byDay) byDay[k]++ })
-      const newLineData = Object.entries(byDay).map(([date,marcas])=>({date,marcas}))
+      ;(leadsRaw || []).forEach(r => { const k = fmtDate(r.created_at); if (k in byDay) byDay[k]++ })
+      const newLineData = Object.entries(byDay).map(([date, marcas]) => ({ date, marcas }))
       setLineData(newLineData)
 
-      // Tipos de eventos
+      // Tipos de eventos (distribuição)
       const { data: evRaw } = await supabase.from('events').select('evento')
       const evCount = {}
-      ;(evRaw||[]).forEach(e=>{ evCount[e.evento]=(evCount[e.evento]||0)+1 })
-      const newBarData = Object.entries(evCount).sort((a,b)=>b[1]-a[1]).slice(0,8)
-        .map(([tipo,qtd])=>({tipo,qtd}))
+      ;(evRaw || []).forEach(e => { evCount[e.evento] = (evCount[e.evento] || 0) + 1 })
+      const newBarData = Object.entries(evCount).sort((a, b) => b[1] - a[1]).slice(0, 8)
+        .map(([tipo, qtd]) => ({ tipo, qtd }))
       setBarData(newBarData)
 
-      // Origem CTA
-      const { data: origRaw } = await supabase.from('events').select('utm_source').eq('evento','cta_click')
+      // Origem das sessões por utm_source (sessions table — fonte correta)
+      const { data: sessOrigemRaw } = await supabase.from('sessions').select('utm_source')
       const origCount = {}
-      ;(origRaw||[]).forEach(e=>{ const s=e.utm_source||'direto'; origCount[s]=(origCount[s]||0)+1 })
-      const newPieData = Object.entries(origCount).map(([name,value])=>({name,value}))
+      ;(sessOrigemRaw || []).forEach(s => {
+        const src = s.utm_source || 'direto'
+        origCount[src] = (origCount[src] || 0) + 1
+      })
+      const newPieData = Object.entries(origCount)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 6)
+        .map(([name, value]) => ({ name, value }))
       setPieData(newPieData)
 
       // Insights
       const { data: combosRaw } = await supabase.from('leads').select('combo,influencer')
-      const comboCount={}, influCount={}
-      ;(combosRaw||[]).forEach(l=>{
-        if(l.combo) comboCount[l.combo]=(comboCount[l.combo]||0)+1
-        if(l.influencer) influCount[l.influencer]=(influCount[l.influencer]||0)+1
+      const comboCount = {}, influCount = {}
+      ;(combosRaw || []).forEach(l => {
+        if (l.combo)      comboCount[l.combo]      = (comboCount[l.combo]      || 0) + 1
+        if (l.influencer) influCount[l.influencer]  = (influCount[l.influencer] || 0) + 1
       })
-      const topCombo = Object.entries(comboCount).sort((a,b)=>b[1]-a[1])[0]
-      const topInflu = Object.entries(influCount).sort((a,b)=>b[1]-a[1])[0]
-      const { count: clicksHoje } = await supabase.from('events').select('*',{count:'exact',head:true})
-        .eq('evento','cta_click').gte('created_at', new Date(new Date().setHours(0,0,0,0)).toISOString())
+      const topCombo = Object.entries(comboCount).sort((a, b) => b[1] - a[1])[0]
+      const topInflu = Object.entries(influCount).sort((a, b) => b[1] - a[1])[0]
+      const { count: clicksHoje } = await supabase.from('events').select('*', { count:'exact', head:true })
+        .eq('evento', 'click_cta').gte('created_at', new Date(new Date().setHours(0,0,0,0)).toISOString())
       const newInsights = []
-      if(topCombo) newInsights.push(`Combo mais popular: "${topCombo[0]}" com ${topCombo[1]} marcas captadas`)
-      if(topInflu) newInsights.push(`Influenciador com mais conversões: ${topInflu[0]} (${topInflu[1]} leads)`)
-      newInsights.push(`Cliques no CTA hoje: ${clicksHoje??0}`)
-      if(conversao>0) newInsights.push(`Taxa de conversão sessão → marca: ${conversao}%`)
+      if (topCombo) newInsights.push(`Combo mais popular: "${topCombo[0]}" com ${topCombo[1]} marcas captadas`)
+      if (topInflu) newInsights.push(`Influenciador com mais conversões: ${topInflu[0]} (${topInflu[1]} leads)`)
+      newInsights.push(`Cliques no CTA hoje: ${clicksHoje ?? 0}`)
+      if (conversao > 0) newInsights.push(`Taxa de conversão sessão → marca: ${conversao}%`)
       setInsights(newInsights)
 
-      _overviewCache = { stats:newStats, lineData:newLineData, barData:newBarData, pieData:newPieData, insights:newInsights }
+      _overviewCache = { stats: newStats, lineData: newLineData, barData: newBarData, pieData: newPieData, insights: newInsights }
     } catch(err) {
       console.error('[Overview]', err)
     } finally {
@@ -250,13 +252,12 @@ export default function Overview() {
   }, [])
 
   async function loadInfluencers() {
-    const { data } = await supabase.from('influencers').select('*').order('created_at',{ascending:false})
+    const { data } = await supabase.from('influencers').select('*').order('created_at', { ascending: false })
     const infs = data || []
     setInfluencers(infs)
 
     if (infs.length === 0) return
 
-    // Métricas por influenciador
     const handles = infs.map(i => i.handle)
     const [{ data: sessData }, { data: leadData }] = await Promise.all([
       supabase.from('sessions').select('influencer').in('influencer', handles),
@@ -264,8 +265,8 @@ export default function Overview() {
     ])
     const m = {}
     handles.forEach(h => { m[h] = { sessoes: 0, marcas: 0 } })
-    ;(sessData||[]).forEach(s => { if(m[s.influencer]) m[s.influencer].sessoes++ })
-    ;(leadData||[]).forEach(l => { if(m[l.influencer]) m[l.influencer].marcas++ })
+    ;(sessData || []).forEach(s => { if (m[s.influencer]) m[s.influencer].sessoes++ })
+    ;(leadData || []).forEach(l => { if (m[l.influencer]) m[l.influencer].marcas++ })
     setMetrics(m)
   }
 
@@ -280,10 +281,10 @@ export default function Overview() {
     loadInfluencers()
 
     const channel = supabase.channel('overview-rt')
-      .on('postgres_changes',{event:'*',schema:'public',table:'leads'},    ()=>loadData(false))
-      .on('postgres_changes',{event:'*',schema:'public',table:'sessions'}, ()=>loadData(false))
-      .on('postgres_changes',{event:'*',schema:'public',table:'events'},   ()=>loadData(false))
-      .on('postgres_changes',{event:'*',schema:'public',table:'influencers'},()=>loadInfluencers())
+      .on('postgres_changes', { event:'*', schema:'public', table:'leads' },      () => loadData(false))
+      .on('postgres_changes', { event:'*', schema:'public', table:'sessions' },   () => loadData(false))
+      .on('postgres_changes', { event:'*', schema:'public', table:'events' },     () => loadData(false))
+      .on('postgres_changes', { event:'*', schema:'public', table:'influencers' }, () => loadInfluencers())
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
@@ -291,20 +292,18 @@ export default function Overview() {
 
   return (
     <div className="page-container fade-in">
-      {/* Header */}
       <div className="page-header" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
         <div>
           <h1 className="page-title">Visão</h1>
           <p className="page-subtitle">Performance de todas as landing pages</p>
         </div>
         {isAdmin && (
-          <button className="btn-primary" onClick={()=>setModal(true)}>
+          <button className="btn-primary" onClick={() => setModal(true)}>
             <Plus size={15}/> Cadastrar
           </button>
         )}
       </div>
 
-      {/* Cards de influenciadores */}
       {influencers.length > 0 && (
         <div className="influencer-grid">
           {influencers.map(inf => (
@@ -322,22 +321,20 @@ export default function Overview() {
         <div className="loading-state"><div className="loading-spinner"/>Carregando dados...</div>
       ) : (
         <>
-          {/* Stat Cards */}
           <div className="stat-cards-grid">
-            <StatCard label="Total de Marcas"   value={stats.leads.toLocaleString('pt-BR')}    sub="leads captados"           icon={<Users size={18}/>}            color="--accent-blue"/>
-            <StatCard label="Conversão"          value={`${stats.conversao}%`}                  sub="sessão → marca"            icon={<TrendingUp size={18}/>}        color="--accent-green"/>
-            <StatCard label="Sessões"            value={stats.sessoes.toLocaleString('pt-BR')}  sub="visitas únicas"            icon={<MousePointerClick size={18}/>} color="--accent-yellow"/>
-            <StatCard label="Total de Eventos"   value={stats.eventos.toLocaleString('pt-BR')}  sub="interações rastreadas"     icon={<Activity size={18}/>}          color="--accent-purple"/>
+            <StatCard label="Total de Marcas"  value={stats.leads.toLocaleString('pt-BR')}   sub="leads captados"        icon={<Users size={18}/>}            color="--accent-blue"/>
+            <StatCard label="Conversão"         value={`${stats.conversao}%`}                 sub="sessão → marca"         icon={<TrendingUp size={18}/>}        color="--accent-green"/>
+            <StatCard label="Sessões"           value={stats.sessoes.toLocaleString('pt-BR')} sub="visitas únicas"         icon={<MousePointerClick size={18}/>} color="--accent-yellow"/>
+            <StatCard label="Total de Eventos"  value={stats.eventos.toLocaleString('pt-BR')} sub="interações rastreadas"  icon={<Activity size={18}/>}          color="--accent-purple"/>
           </div>
 
-          {/* Insights */}
           {insights.length > 0 && (
             <div className="insights-block">
               <div className="insights-title"><Lightbulb size={15} color="var(--accent-yellow)"/>Insights</div>
               <div className="insights-list">
-                {insights.map((text,i) => (
+                {insights.map((text, i) => (
                   <div key={i} className="insight-item">
-                    <span className="insight-dot" style={{background: PIE_COLORS[i%PIE_COLORS.length]}}/>
+                    <span className="insight-dot" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }}/>
                     {text}
                   </div>
                 ))}
@@ -345,7 +342,6 @@ export default function Overview() {
             </div>
           )}
 
-          {/* Gráficos */}
           <div className="charts-grid-3">
             <div className="card">
               <div className="card-title">Marcas por Dia</div>
@@ -374,26 +370,26 @@ export default function Overview() {
             </div>
 
             <div className="card">
-              <div className="card-title">Origem dos Cliques</div>
+              <div className="card-title">Origem das Sessões</div>
               {pieData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={220}>
                   <PieChart>
                     <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value">
-                      {pieData.map((_,i) => <Cell key={i} fill={PIE_COLORS[i%PIE_COLORS.length]}/>)}
+                      {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]}/>)}
                     </Pie>
                     <Tooltip contentStyle={{background:'#1a1d2e',border:'1px solid #1e2330',borderRadius:8,fontSize:12}}/>
                     <Legend iconType="circle" iconSize={8} formatter={v=><span style={{color:'#94a3b8',fontSize:11}}>{v}</span>}/>
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="empty-state" style={{height:220}}>Sem dados de cliques</div>
+                <div className="empty-state" style={{height:220}}>Sem dados de origem</div>
               )}
             </div>
           </div>
         </>
       )}
 
-      {modal && <ModalInfluencer onClose={()=>setModal(false)} onSaved={loadInfluencers}/>}
+      {modal && <ModalInfluencer onClose={() => setModal(false)} onSaved={loadInfluencers}/>}
     </div>
   )
 }
