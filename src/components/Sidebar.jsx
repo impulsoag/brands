@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Users, Activity, MonitorSmartphone,
   Zap, Settings, UserCog, ChevronLeft, ChevronRight,
-  Menu, X, LogOut, Shield, Star, Search, Moon, Sun,
+  Menu, X, LogOut, Shield, Star, Search, Moon, Sun, Bug,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { useTheme } from '../contexts/ThemeContext.jsx'
@@ -14,6 +14,7 @@ const NAV_LINKS = [
   { to: '/eventos',  label: 'Eventos',  Icon: Activity },
   { to: '/sessoes',         label: 'Sessões',         Icon: MonitorSmartphone },
   { to: '/influenciadores', label: 'Influenciadores', Icon: Star },
+  { to: '/bugs',            label: 'Bugs',            Icon: Bug },
 ]
 
 export default function Sidebar() {

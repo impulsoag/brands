@@ -53,7 +53,7 @@ export default function Leads() {
       since.setDate(since.getDate() - Number(fPeriod))
       const { data, error } = await supabase
         .from('leads')
-        .select('id,created_at,nome,numero,device_type,influencer,utm_source,combo,session_id,status')
+        .select('id,created_at,nome,numero,device_type,influencer,utm_source,combo,status')
         .gte('created_at', since.toISOString())
         .order('created_at', { ascending: false })
         .limit(500)

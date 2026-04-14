@@ -4,11 +4,13 @@ import StatCard from '../components/StatCard.jsx'
 import { supabase } from '../lib/supabase.js'
 
 const EVENT_COLORS = {
-  page_view:   'badge-blue',
-  click_cta:   'badge-green',
-  scroll:      'badge-yellow',
-  form_start:  'badge-purple',
-  form_submit: 'badge-orange',
+  page_view:         'badge-blue',
+  click_cta:         'badge-green',
+  scroll_depth:      'badge-yellow',
+  first_interaction: 'badge-purple',
+  lead_submit:       'badge-orange',
+  time_on_page:      'badge-cyan',
+  faq_click:         'badge-gray',
 }
 
 function EventBadge({ tipo }) {
@@ -16,10 +18,10 @@ function EventBadge({ tipo }) {
 }
 
 function EventValue({ evento, depth, cta_name, question_id, props: evProps }) {
-  if (evento === 'scroll'      && depth != null) return <span className="badge badge-yellow">{depth}%</span>
-  if (evento === 'click_cta'   && cta_name)      return <span className="text-small" style={{ color: 'var(--text-primary)' }}>{cta_name}</span>
-  if (evento === 'form_submit' && evProps?.combo) return <span className="text-small" style={{ color: 'var(--text-secondary)' }}>{evProps.combo}</span>
-  if (question_id)                                return <span className="badge badge-purple">Q:{question_id}</span>
+  if (evento === 'scroll_depth' && depth != null) return <span className="badge badge-yellow">{depth}%</span>
+  if (evento === 'click_cta'   && cta_name)       return <span className="text-small" style={{ color: 'var(--text-primary)' }}>{cta_name}</span>
+  if (evento === 'lead_submit' && evProps?.combo)  return <span className="text-small" style={{ color: 'var(--text-secondary)' }}>{evProps.combo}</span>
+  if (question_id)                                 return <span className="badge badge-purple">Q:{question_id}</span>
   return <span className="text-muted">—</span>
 }
 
@@ -48,13 +50,13 @@ export default function Events() {
   const [events, setEvents]         = useState(cached?.events || [])
   const [loading, setLoading]       = useState(!cached)
   const [eventTypes, setEventTypes] = useState(cached?.eventTypes || [])
-  const [summary, setSummary]       = useState(cached?.summary || { clicks: 0, scrolls: 0, formSubmits: 0 })
+  const [summary, setSummary]       = useState(cached?.summary || { clicks: 0, scrolls: 0, leadSubmits: 0 })
 
   function computeSummary(rows) {
     return {
       clicks:      rows.filter(e => e.evento === 'click_cta').length,
-      scrolls:     rows.filter(e => e.evento === 'scroll').length,
-      formSubmits: rows.filter(e => e.evento === 'form_submit').length,
+      scrolls:     rows.filter(e => e.evento === 'scroll_depth').length,
+      leadSubmits: rows.filter(e => e.evento === 'lead_submit').length,
     }
   }
 
@@ -116,7 +118,7 @@ export default function Events() {
       <div className="stat-cards-grid">
         <StatCard label="Cliques no CTA"  value={summary.clicks}      icon={<MousePointerClick size={18}/>} color="--accent-green"/>
         <StatCard label="Scrolls"         value={summary.scrolls}     icon={<ArrowDownUp size={18}/>}      color="--accent-yellow"/>
-        <StatCard label="Formulários"     value={summary.formSubmits} icon={<HelpCircle size={18}/>}       color="--accent-purple"/>
+        <StatCard label="Leads Enviados"  value={summary.leadSubmits} icon={<HelpCircle size={18}/>}       color="--accent-purple"/>
       </div>
 
       <div className="filters-bar">

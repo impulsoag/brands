@@ -35,6 +35,7 @@ export function AuthProvider({ children }) {
 
   async function signIn(email, password) {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) console.error('[Auth] signInWithPassword error:', error.message, error.status)
     return error
   }
 

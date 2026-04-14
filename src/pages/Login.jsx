@@ -15,7 +15,7 @@ export default function Login() {
     setError('')
     setLoading(true)
     const err = await signIn(email, password)
-    if (err) setError('E-mail ou senha incorretos.')
+    if (err) setError(err.message || 'E-mail ou senha incorretos.')
     setLoading(false)
   }
 
