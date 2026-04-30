@@ -1,7 +1,16 @@
 import React from 'react'
-import { TrendingUp, TrendingDown } from 'lucide-react'
 
-export default function StatCard({ label, value, sub, icon, color = '--accent-blue', delta = null }) {
+/**
+ * StatCard — card reutilizável de métrica
+ *
+ * Props:
+ *  label  {string}      — título da métrica
+ *  value  {string|number} — valor principal
+ *  sub    {string}      — texto auxiliar opcional
+ *  icon   {ReactNode}   — ícone Lucide (já instanciado)
+ *  color  {string}      — variável CSS de cor (ex: '--accent-blue')
+ */
+export default function StatCard({ label, value, sub, icon, color = '--accent-blue' }) {
   const iconBg = `rgba(var(--${color.replace('--', '')}-rgb, 59,130,246), 0.12)`
 
   // Mapeamento de cor para rgba
@@ -18,34 +27,11 @@ export default function StatCard({ label, value, sub, icon, color = '--accent-bl
   const iconColor = `var(${color})`
   const bgColor   = colorMap[color] || 'rgba(59,130,246,0.12)'
 
-  let deltaEl = null
-  if (delta !== null) {
-    if (delta > 0) {
-      deltaEl = (
-        <span style={{ display:'inline-flex', alignItems:'center', gap:2, fontSize:11, fontWeight:600, marginLeft:6, color:'#22c55e' }}>
-          <TrendingUp size={13}/> +{delta.toFixed(1)}%
-        </span>
-      )
-    } else if (delta < 0) {
-      deltaEl = (
-        <span style={{ display:'inline-flex', alignItems:'center', gap:2, fontSize:11, fontWeight:600, marginLeft:6, color:'#ef4444' }}>
-          <TrendingDown size={13}/> {delta.toFixed(1)}%
-        </span>
-      )
-    } else {
-      deltaEl = (
-        <span style={{ display:'inline-flex', alignItems:'center', gap:2, fontSize:11, fontWeight:600, marginLeft:6, color:'#94a3b8' }}>
-          → 0%
-        </span>
-      )
-    }
-  }
-
   return (
     <div className="stat-card fade-in">
       <div className="stat-card-info">
         <span className="stat-card-label">{label}</span>
-        <span className="stat-card-value">{value ?? '—'}{deltaEl}</span>
+        <span className="stat-card-value">{value ?? '—'}</span>
         {sub && <span className="stat-card-sub">{sub}</span>}
       </div>
       {icon && (
