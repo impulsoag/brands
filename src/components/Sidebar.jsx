@@ -35,7 +35,7 @@ export default function Sidebar() {
 
       <aside className={`sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}>
         {/* Logo */}
-        <div className="sidebar-logo">
+        <div className="sidebar-logo" style={{ borderBottom: '1px solid var(--sidebar-border)', paddingBottom: '16px', marginBottom: '4px' }}>
           <div className="sidebar-logo-icon">
             <Zap size={14} color="#fff" />
           </div>
@@ -106,7 +106,7 @@ export default function Sidebar() {
         <div className="sidebar-footer">
           {!collapsed ? (
             <div className="sidebar-user">
-              <div className="sidebar-avatar">
+              <div className="sidebar-avatar" style={{ background: 'rgba(37,15,239,0.2)', color: '#818cf8', border: '2px solid rgba(37,15,239,0.25)' }}>
                 {(profile?.nome || profile?.email || 'U')[0].toUpperCase()}
               </div>
               <div className="sidebar-user-info">
