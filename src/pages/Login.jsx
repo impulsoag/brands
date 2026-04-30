@@ -1,85 +1,67 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Zap, Eye, EyeOff, AlertCircle, X, Loader2 } from 'lucide-react'
+import { Zap, Eye, EyeOff, AlertCircle, X, Loader2, Menu } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { useCountUp } from '../hooks/useCountUp.js'
 import { useLiveStats } from '../hooks/useLiveStats.js'
 import { supabase } from '../lib/supabase.js'
 import './Login.css'
 
-function ParticleCanvas() {
+// ── Bokeh Canvas ───────────────────────────────────────────
+function BokehCanvas() {
   const canvasRef = useRef(null)
-  const mouseRef  = useRef({ x: -9999, y: -9999 })
 
   useEffect(() => {
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (reduced) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
     const canvas = canvasRef.current
     const ctx    = canvas.getContext('2d')
     let animId
 
     const resize = () => {
-      canvas.width  = window.innerWidth
-      canvas.height = window.innerHeight
+      canvas.width  = canvas.offsetWidth
+      canvas.height = canvas.offsetHeight
     }
     resize()
-    window.addEventListener('resize', resize)
 
-    const particles = Array.from({ length: 80 }, () => {
-      const speed = 0.3 + Math.random() * 0.3
-      const angle = Math.random() * Math.PI * 2
-      return {
-        x:  Math.random() * canvas.width,
-        y:  Math.random() * canvas.height,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed,
-      }
-    })
+    const ro = new ResizeObserver(resize)
+    ro.observe(canvas.parentElement)
 
-    const onMove = e => { mouseRef.current = { x: e.clientX, y: e.clientY } }
-    window.addEventListener('mousemove', onMove)
+    const COLORS = ['34,211,238', '139,92,246', '99,102,241', '34,211,238']
+    const particles = Array.from({ length: 38 }, () => ({
+      x:        Math.random() * canvas.width,
+      y:        Math.random() * canvas.height,
+      r:        1 + Math.random() * 2.5,
+      glow:     12 + Math.random() * 32,
+      opacity:  0.12 + Math.random() * 0.4,
+      vx:       (Math.random() - 0.5) * 0.22,
+      vy:       (Math.random() - 0.5) * 0.22,
+      color:    COLORS[Math.floor(Math.random() * COLORS.length)],
+    }))
 
     const tick = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height)
-      const { x: mx, y: my } = mouseRef.current
 
       particles.forEach(p => {
-        const dx = mx - p.x
-        const dy = my - p.y
-        const d  = Math.sqrt(dx * dx + dy * dy)
-        if (d < 150 && d > 0) {
-          p.vx += (dx / d) * 0.02
-          p.vy += (dy / d) * 0.02
-          const spd = Math.sqrt(p.vx * p.vx + p.vy * p.vy)
-          if (spd > 2) { p.vx = (p.vx / spd) * 2; p.vy = (p.vy / spd) * 2 }
-        }
-
         p.x += p.vx
         p.y += p.vy
         if (p.x < 0 || p.x > canvas.width)  p.vx *= -1
         if (p.y < 0 || p.y > canvas.height) p.vy *= -1
 
+        // soft glow halo
+        const grd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.glow)
+        grd.addColorStop(0, `rgba(${p.color},${p.opacity})`)
+        grd.addColorStop(1, `rgba(${p.color},0)`)
+        ctx.fillStyle = grd
         ctx.beginPath()
-        ctx.arc(p.x, p.y, 2, 0, Math.PI * 2)
-        ctx.fillStyle = 'rgba(37,15,239,0.7)'
+        ctx.arc(p.x, p.y, p.glow, 0, Math.PI * 2)
+        ctx.fill()
+
+        // hard center dot
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
+        ctx.fillStyle = `rgba(${p.color},${Math.min(p.opacity * 2.5, 0.95)})`
         ctx.fill()
       })
-
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const dx = particles[i].x - particles[j].x
-          const dy = particles[i].y - particles[j].y
-          const d  = Math.sqrt(dx * dx + dy * dy)
-          if (d < 120) {
-            ctx.beginPath()
-            ctx.moveTo(particles[i].x, particles[i].y)
-            ctx.lineTo(particles[j].x, particles[j].y)
-            ctx.strokeStyle = `rgba(37,15,239,${(1 - d / 120).toFixed(3)})`
-            ctx.lineWidth = 1
-            ctx.stroke()
-          }
-        }
-      }
 
       animId = requestAnimationFrame(tick)
     }
@@ -87,14 +69,14 @@ function ParticleCanvas() {
 
     return () => {
       cancelAnimationFrame(animId)
-      window.removeEventListener('resize', resize)
-      window.removeEventListener('mousemove', onMove)
+      ro.disconnect()
     }
   }, [])
 
-  return <canvas ref={canvasRef} className="lp-canvas" />
+  return <canvas ref={canvasRef} className="lp-bokeh" />
 }
 
+// ── Stat number with count-up ──────────────────────────────
 function StatNum({ value, label, duration, loaded, fmt }) {
   const count = useCountUp(loaded ? value : 0, duration)
   return (
@@ -105,6 +87,7 @@ function StatNum({ value, label, duration, loaded, fmt }) {
   )
 }
 
+// ── Main ───────────────────────────────────────────────────
 export default function Login() {
   const { signIn } = useAuth()
   const [email,       setEmail]       = useState('')
@@ -137,77 +120,87 @@ export default function Login() {
     setLoading(false)
   }
 
-  // Multiply by 10 so useCountUp (integers only) preserves one decimal place
+  // ×10 trick: useCountUp rounds to int, so multiply for 1 decimal
   const conversaoX10 = loaded && stats.sessoes > 0
     ? Math.round((stats.marcas / stats.sessoes) * 1000)
     : 0
 
   return (
     <div className="lp-root">
-      <ParticleCanvas />
+      {/* ── Floating card ── */}
+      <div className="lp-card">
+        <BokehCanvas />
 
-      <div className="lp-ui">
-        {/* Logo */}
-        <div className="lp-logo">
-          <div className="lp-logo-icon"><Zap size={18} color="#fff" /></div>
-          <span className="lp-logo-text">Brands</span>
-        </div>
-
-        {/* Login button */}
-        <button className="lp-login-btn" onClick={() => setModal(true)}>
-          Entrar
-        </button>
-
-        {/* Hero */}
-        <div className="lp-hero">
-          <div className="lp-badge">
-            <span className="lp-badge-dot" /> AO VIVO
+        <div className="lp-ui">
+          {/* top bar */}
+          <div className="lp-topbar">
+            <div className="lp-logo">
+              <div className="lp-logo-icon"><Zap size={16} color="#22d3ee" /></div>
+              <span className="lp-logo-text">Brands</span>
+            </div>
+            <button className="lp-menu-btn" onClick={() => setModal(true)} aria-label="Abrir login">
+              <Menu size={20} color="rgba(255,255,255,0.7)" />
+            </button>
           </div>
 
-          <h1 className="lp-headline">
-            Inteligência em <span className="lp-accent">tempo real</span><br />
-            para influenciadores.
-          </h1>
+          {/* hero */}
+          <div className="lp-hero">
+            <div className="lp-badge">
+              <span className="lp-badge-dot" /> AO VIVO
+            </div>
 
-          <p className="lp-sub">
-            Rastreie sessões, leads e conversões da sua operação — tudo em um só lugar.
-          </p>
+            <h1 className="lp-headline">
+              Inteligência em<br />
+              <span className="lp-accent">tempo real</span><br />
+              para influenciadores.
+            </h1>
 
-          <div className="lp-stats">
-            <StatNum
-              value={stats.sessoes}  label="Sessões Totais"    duration={1400}
-              loaded={loaded}        fmt={n => n.toLocaleString('pt-BR')}
-            />
-            <StatNum
-              value={stats.marcas}   label="Leads Captados"    duration={1200}
-              loaded={loaded}        fmt={n => n.toLocaleString('pt-BR')}
-            />
-            <StatNum
-              value={influencers}    label="Influenciadores"   duration={1000}
-              loaded={loaded}        fmt={n => n.toLocaleString('pt-BR')}
-            />
-            <StatNum
-              value={conversaoX10}   label="Taxa de Conversão" duration={1600}
-              loaded={loaded}        fmt={n => `${(n / 10).toFixed(1)}%`}
-            />
+            <p className="lp-sub">
+              Rastreie sessões, leads e conversões da sua operação.
+            </p>
+
+            <button className="lp-cta" onClick={() => setModal(true)}>
+              Acessar plataforma
+            </button>
+          </div>
+
+          {/* stats bottom */}
+          <div className="lp-stats-bar">
+            <div className="lp-stats-label">Dados ao vivo</div>
+            <div className="lp-stats-row">
+              <StatNum value={stats.sessoes}  label="Sessões"       duration={1400} loaded={loaded} fmt={n => n.toLocaleString('pt-BR')} />
+              <div className="lp-stat-div" />
+              <StatNum value={stats.marcas}   label="Leads"         duration={1200} loaded={loaded} fmt={n => n.toLocaleString('pt-BR')} />
+              <div className="lp-stat-div" />
+              <StatNum value={influencers}    label="Influenciadores" duration={1000} loaded={loaded} fmt={n => n.toLocaleString('pt-BR')} />
+              <div className="lp-stat-div" />
+              <StatNum value={conversaoX10}   label="Conversão"     duration={1600} loaded={loaded} fmt={n => `${(n / 10).toFixed(1)}%`} />
+            </div>
           </div>
         </div>
-
-        <p className="lp-footer">Acesso restrito · Brands © 2025</p>
       </div>
 
-      {/* Modal */}
+      {/* ── Modal login ── */}
       {modal && (
         <div className="lp-overlay" onClick={() => setModal(false)}>
-          <div className="lp-modal" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="lp-modal-title">
+          <div
+            className="lp-modal"
+            onClick={e => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="lp-modal-title"
+          >
             <button className="lp-modal-close" onClick={() => setModal(false)} aria-label="Fechar">
-              <X size={18} />
+              <X size={16} />
             </button>
 
-            <div className="lp-modal-header">
-              <h2 className="lp-modal-title" id="lp-modal-title">Bem-vindo de volta</h2>
-              <p className="lp-modal-sub">Entre com suas credenciais</p>
+            <div className="lp-modal-logo">
+              <div className="lp-logo-icon"><Zap size={14} color="#22d3ee" /></div>
+              <span className="lp-logo-text" style={{ fontSize: 15 }}>Brands</span>
             </div>
+
+            <h2 className="lp-modal-title" id="lp-modal-title">Bem-vindo de volta</h2>
+            <p className="lp-modal-sub">Entre com suas credenciais de acesso</p>
 
             <form onSubmit={handleSubmit} noValidate>
               <div className="lp-field">
@@ -245,7 +238,7 @@ export default function Login() {
                     tabIndex={-1}
                     aria-label={showPass ? 'Ocultar senha' : 'Mostrar senha'}
                   >
-                    {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                    {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
                 </div>
               </div>
