@@ -169,6 +169,9 @@ export default function Overview() {
   const [barData, setBarData]       = useState(_overviewCache?.barData  || [])
   const [pieData, setPieData]       = useState(_overviewCache?.pieData  || [])
   const [insights, setInsights]     = useState(_overviewCache?.insights || [])
+  const [deltaLeads, setDeltaLeads]     = useState(_overviewCache?.deltaLeads   ?? null)
+  const [deltaSessoes, setDeltaSessoes] = useState(_overviewCache?.deltaSessoes ?? null)
+  const [deltaEventos, setDeltaEventos] = useState(_overviewCache?.deltaEventos ?? null)
   const [influencers, setInfluencers] = useState([])
   const [metrics, setMetrics]       = useState({})
   const [modal, setModal]           = useState(false)
@@ -176,15 +179,38 @@ export default function Overview() {
   const loadData = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true)
     try {
+      const since7  = new Date(); since7.setDate(since7.getDate() - 7)
+      const since14 = new Date(); since14.setDate(since14.getDate() - 14)
+
       const [
         { count: totalLeads },
         { count: totalSessoes },
         { count: totalEventos },
+        { count: prevLeads },
+        { count: prevSessoes },
+        { count: prevEventos },
+        { count: curLeads },
+        { count: curSessoes },
+        { count: curEventos },
       ] = await Promise.all([
         supabase.from('leads').select('*',    { count:'exact', head:true }),
         supabase.from('sessions').select('*', { count:'exact', head:true }),
         supabase.from('events').select('*',   { count:'exact', head:true }),
+        supabase.from('leads').select('*',    { count:'exact', head:true }).gte('created_at', since14.toISOString()).lt('created_at', since7.toISOString()),
+        supabase.from('sessions').select('*', { count:'exact', head:true }).gte('created_at', since14.toISOString()).lt('created_at', since7.toISOString()),
+        supabase.from('events').select('*',   { count:'exact', head:true }).gte('created_at', since14.toISOString()).lt('created_at', since7.toISOString()),
+        supabase.from('leads').select('*',    { count:'exact', head:true }).gte('created_at', since7.toISOString()),
+        supabase.from('sessions').select('*', { count:'exact', head:true }).gte('created_at', since7.toISOString()),
+        supabase.from('events').select('*',   { count:'exact', head:true }).gte('created_at', since7.toISOString()),
       ])
+
+      const calcDelta = (cur, prev) => Math.round(((cur - prev) / (prev || 1)) * 1000) / 10
+      const newDeltaLeads   = calcDelta(curLeads   ?? 0, prevLeads   ?? 0)
+      const newDeltaSessoes = calcDelta(curSessoes ?? 0, prevSessoes ?? 0)
+      const newDeltaEventos = calcDelta(curEventos ?? 0, prevEventos ?? 0)
+      setDeltaLeads(newDeltaLeads)
+      setDeltaSessoes(newDeltaSessoes)
+      setDeltaEventos(newDeltaEventos)
 
       // Conversão: leads / sessions
       const conversao = totalSessoes > 0 ? ((totalLeads / totalSessoes) * 100).toFixed(1) : '0.0'
@@ -192,7 +218,6 @@ export default function Overview() {
       setStats(newStats)
 
       // Leads por dia (14 dias)
-      const since14 = new Date(); since14.setDate(since14.getDate() - 14)
       const { data: leadsRaw } = await supabase.from('leads').select('created_at')
         .gte('created_at', since14.toISOString()).order('created_at', { ascending: true })
       const byDay = {}
@@ -243,7 +268,7 @@ export default function Overview() {
       if (conversao > 0) newInsights.push(`Taxa de conversão sessão → marca: ${conversao}%`)
       setInsights(newInsights)
 
-      _overviewCache = { stats: newStats, lineData: newLineData, barData: newBarData, pieData: newPieData, insights: newInsights }
+      _overviewCache = { stats: newStats, lineData: newLineData, barData: newBarData, pieData: newPieData, insights: newInsights, deltaLeads: newDeltaLeads, deltaSessoes: newDeltaSessoes, deltaEventos: newDeltaEventos }
     } catch(err) {
       console.error('[Overview]', err)
     } finally {
@@ -322,10 +347,10 @@ export default function Overview() {
       ) : (
         <>
           <div className="stat-cards-grid">
-            <StatCard label="Total de Marcas"  value={stats.leads.toLocaleString('pt-BR')}   sub="leads captados"        icon={<Users size={18}/>}            color="--accent-blue"/>
+            <StatCard label="Total de Marcas"  value={stats.leads.toLocaleString('pt-BR')}   sub="leads captados"        icon={<Users size={18}/>}            color="--accent-blue"   delta={deltaLeads}/>
             <StatCard label="Conversão"         value={`${stats.conversao}%`}                 sub="sessão → marca"         icon={<TrendingUp size={18}/>}        color="--accent-green"/>
-            <StatCard label="Sessões"           value={stats.sessoes.toLocaleString('pt-BR')} sub="visitas únicas"         icon={<MousePointerClick size={18}/>} color="--accent-yellow"/>
-            <StatCard label="Total de Eventos"  value={stats.eventos.toLocaleString('pt-BR')} sub="interações rastreadas"  icon={<Activity size={18}/>}          color="--accent-purple"/>
+            <StatCard label="Sessões"           value={stats.sessoes.toLocaleString('pt-BR')} sub="visitas únicas"         icon={<MousePointerClick size={18}/>} color="--accent-yellow" delta={deltaSessoes}/>
+            <StatCard label="Total de Eventos"  value={stats.eventos.toLocaleString('pt-BR')} sub="interações rastreadas"  icon={<Activity size={18}/>}          color="--accent-purple" delta={deltaEventos}/>
           </div>
 
           {insights.length > 0 && (
