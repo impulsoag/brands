@@ -3,10 +3,9 @@ import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Users, Activity, MonitorSmartphone,
   Zap, Settings, UserCog, ChevronLeft, ChevronRight,
-  Menu, X, LogOut, Shield, Star, Search, Moon, Sun, Bug,
+  Menu, X, LogOut, Shield, Star, Search, Bug,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext.jsx'
-import { useTheme } from '../contexts/ThemeContext.jsx'
 
 const NAV_LINKS = [
   { to: '/visao',    label: 'Visão',    Icon: LayoutDashboard },
@@ -19,7 +18,6 @@ const NAV_LINKS = [
 
 export default function Sidebar() {
   const { profile, isAdmin, signOut } = useAuth()
-  const { theme, toggleTheme } = useTheme()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -78,7 +76,7 @@ export default function Sidebar() {
               className={({ isActive }) => 'sidebar-link' + (isActive ? ' active' : '')}
               title={collapsed ? label : undefined}
             >
-              <Icon className="sidebar-link-icon" size={16} />
+              <Icon className="sidebar-link-icon" size={18} />
               {!collapsed && <span>{label}</span>}
             </NavLink>
           ))}
@@ -86,7 +84,6 @@ export default function Sidebar() {
 
         {/* Nav inferior */}
         <nav className="sidebar-nav-bottom">
-          {!collapsed && <span className="sidebar-section-label">Sistema</span>}
           {isAdmin && (
             <NavLink to="/usuarios" onClick={close}
               className={({ isActive }) => 'sidebar-link' + (isActive ? ' active' : '')}
@@ -96,23 +93,6 @@ export default function Sidebar() {
               {!collapsed && <span>Usuários</span>}
             </NavLink>
           )}
-          <button
-            className="sidebar-theme-toggle"
-            onClick={toggleTheme}
-            title={collapsed ? 'Tema' : undefined}
-          >
-            {theme === 'dark'
-              ? <Moon size={16} style={{ color: 'var(--sidebar-icon)', flexShrink: 0 }} />
-              : <Sun  size={16} style={{ color: 'var(--sidebar-icon)', flexShrink: 0 }} />
-            }
-            {!collapsed && (
-              <>
-                <span>Tema Escuro</span>
-                <span className={`sidebar-toggle-switch${theme === 'dark' ? ' on' : ''}`} />
-              </>
-            )}
-          </button>
-
           <NavLink to="/configuracoes" onClick={close}
             className={({ isActive }) => 'sidebar-link' + (isActive ? ' active' : '')}
             title={collapsed ? 'Configurações' : undefined}
@@ -125,29 +105,24 @@ export default function Sidebar() {
         {/* Rodapé */}
         <div className="sidebar-footer">
           {!collapsed ? (
-            <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                <div className="sidebar-avatar">
-                  {(profile?.nome || profile?.email || 'U')[0].toUpperCase()}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--sidebar-text-active)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {profile?.nome || profile?.email?.split('@')[0] || 'Usuário'}
-                  </div>
-                  <div style={{ fontSize: 10, color: 'var(--sidebar-text)' }}>
-                    {profile?.role === 'admin'
-                      ? <span style={{ color: '#c4b5fd' }}>Admin</span>
-                      : 'Viewer'
-                    }
-                  </div>
-                </div>
+            <div className="sidebar-user">
+              <div className="sidebar-avatar">
+                {(profile?.nome || profile?.email || 'U')[0].toUpperCase()}
               </div>
-              <button className="sidebar-logout" onClick={signOut}>
-                <LogOut size={13} /> Sair
+              <div className="sidebar-user-info">
+                <span className="sidebar-user-name">
+                  {profile?.nome || profile?.email?.split('@')[0] || 'Usuário'}
+                </span>
+                <span className="sidebar-user-role">
+                  {profile?.role === 'admin' ? 'Admin' : 'Viewer'}
+                </span>
+              </div>
+              <button className="sidebar-user-logout" onClick={signOut} title="Sair">
+                <LogOut size={14} />
               </button>
-            </>
+            </div>
           ) : (
-            <button className="sidebar-logout sidebar-logout-icon" onClick={signOut} title="Sair">
+            <button className="sidebar-logout-icon" onClick={signOut} title="Sair">
               <LogOut size={15} />
             </button>
           )}
